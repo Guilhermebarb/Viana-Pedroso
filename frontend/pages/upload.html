@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Upload de Planilha</title>
+  <style>
+    body {
+      background-color: #f4f4f4;
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+      color: #333;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .upload-box {
+      margin-bottom: 1rem;
+    }
+    .mensagem {
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+    .mensagem.sucesso { color: green; }
+    .mensagem.erro { color: red; }
+    .mensagem.carregando { color: orange; }
+    table {
+      margin-top: 1rem;
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      text-align: left;
+    }
+    th {
+      background-color: #eee;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Upload de Planilha Excel</h1>
+
+    <div class="upload-box">
+      <input type="file" id="fileInput" />
+      <button onclick="enviar()">Enviar</button>
+    </div>
+
+    <div id="mensagem" class="mensagem"></div>
+    <div id="preview" class="preview"></div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+
+    if (!token) {
+      alert("Você precisa estar logado para acessar esta página.");
+      window.location.href = "login.html";
+    }
+
+    if (role !== "admin" && role !== "operador") {
+      alert("Acesso restrito para seu perfil.");
+      window.location.href = "login.html";
+    }
+
+    async function enviar() {
+      const fileInput = document.getElementById("fileInput");
+      const mensagemDiv = document.getElementById("mensagem");
+      const previewDiv = document.getElementById("preview");
+
+      if (!fileInput.files.length) {
+        mensagemDiv.textContent = "Por favor, selecione um arquivo.";
+        mensagemDiv.className = "mensagem erro";
+        return;
+      }
+
+      mensagemDiv.textContent = "Enviando...";
+      mensagemDiv.className = "mensagem carregando";
+
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+
+      try {
+        const response = await fetch("http://localhost:3000/upload/excel", {
+          method: "POST",
+          headers: {
+            Authorization: token
+          },
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          mensagemDiv.textContent = result.error || "Erro ao enviar.";
+          mensagemDiv.className = "mensagem erro";
+          return;
+        }
+
+        mensagemDiv.textContent = "Arquivo enviado com sucesso!";
+        mensagemDiv.className = "mensagem sucesso";
+
+        if (!result.data || result.data.length === 0) {
+          previewDiv.innerHTML = "Nenhum dado encontrado na planilha.";
+          return;
+        }
+
+        let html = "<table><thead><tr>";
+        Object.keys(result.data[0]).forEach(col => html += `<th>${col}</th>`);
+        html += "</tr></thead><tbody>";
+        result.data.forEach(row => {
+          html += "<tr>";
+          Object.values(row).forEach(val => html += `<td>${val}</td>`);
+          html += "</tr>";
+        });
+        html += "</tbody></table>";
+
+        previewDiv.innerHTML = html;
+      } catch (error) {
+        mensagemDiv.textContent = "Erro ao conectar com o servidor.";
+        mensagemDiv.className = "mensagem erro";
+        console.error("Erro ao enviar:", error);
+      }
+    }
+  </script>
+</body>
+</html>
